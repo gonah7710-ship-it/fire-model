@@ -4,34 +4,49 @@ import joblib
 from pathlib import Path
 
 # =========================
-# Load model artifacts
+# Page Config
+# =========================
+st.set_page_config(page_title="Forest Fire Prediction", page_icon="🔥")
+
+st.title("🔥 Forest Fire Occurrence Prediction")
+st.write("Adjust inputs to predict whether a forest fire is likely.")
+
+# =========================
+# Load model artifacts safely
 # =========================
 BASE_DIR = Path(__file__).parent
 
+model_path = BASE_DIR / "fire_model.pkl"
+scaler_path = BASE_DIR / "scaler.pkl"
+feature_order_path = BASE_DIR / "feature_order.pkl"
+
 try:
-    loaded_model = joblib.load(BASE_DIR / "fire_model.pkl")
-    loaded_scaler = joblib.load(BASE_DIR / "scaler.pkl")
-    loaded_feature_order = joblib.load(BASE_DIR / "feature_order.pkl")
-
-    if not isinstance(loaded_feature_order, list):
-        st.error("feature_order.pkl is invalid.")
-        st.stop()
-
+    loaded_model = joblib.load(model_path)
 except Exception as e:
-    st.error(f"Error loading model files: {e}")
+    st.error(f"❌ Could not load model: {e}")
+    st.stop()
+
+# Scaler is optional
+loaded_scaler = None
+if scaler_path.exists():
+    try:
+        loaded_scaler = joblib.load(scaler_path)
+    except:
+        st.warning("⚠️ Scaler found but could not load. Continuing without scaling.")
+
+try:
+    loaded_feature_order = joblib.load(feature_order_path)
+except Exception as e:
+    st.error(f"❌ Could not load feature order: {e}")
+    st.stop()
+
+if not isinstance(loaded_feature_order, list):
+    st.error("❌ feature_order.pkl must contain a list.")
     st.stop()
 
 # =========================
-# App UI
+# Categorical mappings
 # =========================
-st.title("🔥 Forest Fire Occurrence Prediction")
-st.write("Adjust the inputs to predict whether a forest fire is likely to occur.")
-
-# =========================
-# User inputs
-# =========================
-user_input = {}
-
 month_map = {
     'jan': 'month_jan', 'feb': 'month_feb', 'mar': 'month_mar',
     'apr': 'month_apr', 'may': 'month_may', 'jun': 'month_jun',
@@ -41,61 +56,22 @@ month_map = {
 
 day_map = {
     'mon': 'day_mon', 'tue': 'day_tue', 'wed': 'day_wed',
-    'thu': 'day_thu', 'fri': 'day_fri', 'sat': 'day_sat', 'sun': 'day_sun'
+    'thu': 'day_thu', 'fri': 'day_fri',
+    'sat': 'day_sat', 'sun': 'day_sun'
 }
 
+# =========================
+# User Inputs
+# =========================
 selected_month = st.selectbox("Month", list(month_map.keys()))
 selected_day = st.selectbox("Day", list(day_map.keys()))
 
-# Initialize categorical features
+user_input = {}
+
+# Initialize categorical columns
 for col in loaded_feature_order:
     if col.startswith("month_") or col.startswith("day_"):
         user_input[col] = 0
 
-user_input[month_map[selected_month]] = 1
-user_input[day_map[selected_day]] = 1
-
-# =========================
-# Numeric inputs
-# =========================
-user_input['X'] = st.slider('X (1–9)', 1, 9, 5)
-user_input['Y'] = st.slider('Y (2–9)', 2, 9, 5)
-user_input['FFMC'] = st.slider('FFMC', 18.0, 97.0, 90.0)
-user_input['DMC'] = st.slider('DMC', 1.0, 292.0, 110.0)
-user_input['DC'] = st.slider('DC', 7.0, 861.0, 500.0)
-user_input['ISI'] = st.slider('ISI', 0.0, 57.0, 9.0)
-user_input['temp'] = st.slider('Temperature (°C)', 2.0, 34.0, 18.0)
-user_input['RH'] = st.slider('Relative Humidity (%)', 15, 100, 45)
-user_input['wind'] = st.slider('Wind (km/h)', 0.0, 10.0, 4.0)
-user_input['rain'] = st.slider('Rain (mm)', 0.0, 7.0, 0.0)
-
-# =========================
-# Prepare input (FIXED)
-# =========================
-input_df = pd.DataFrame([user_input])
-
-final_input_df = input_df.reindex(
-    columns=loaded_feature_order,
-    fill_value=0
-).astype(float)
-
-# 🔑 CRITICAL FIX: use NumPy array
-scaled_input = loaded_scaler.transform(final_input_df.values)
-
-# =========================
-# Prediction
-# =========================
-if st.button("Predict Fire Occurrence"):
-    prediction = loaded_model.predict(scaled_input)
-    prediction_proba = loaded_model.predict_proba(scaled_input)
-
-    if prediction[0] == 1:
-        st.error(
-            f"🔥 Fire likely to occur "
-            f"(Probability: {prediction_proba[0][1]:.2f})"
-        )
-    else:
-        st.success(
-            f"✅ Fire unlikely to occur "
-            f"(Probability: {prediction_proba[0][0]:.2f})"
-        )
+# Activate selected
+if
